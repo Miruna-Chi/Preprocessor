@@ -1,0 +1,210 @@
+Chiricu Miruna 332CB
+
+
+
+				Tema 1
+
+
+
+
+*** Implementare (intregul enunt al temei este implementat) ***
+
+1. Hashmap
+Implementarea are la baza crearea si utilizarea unui hashmap (struct)
+alocat dinamic asemanator celui din Java care isi dubleaza numarul de buckets
+la nevoie (cand numarul din elemente din buckets depaseste numarul de buckets).
+
+typedef struct symbol_mapping {
+	char *symbol;
+	char *mapping;
+	struct symbol_mapping *next;
+} *SymbolMapping, **SymbolM;
+
+typedef struct hashmap {
+	SymbolM buckets;
+	unsigned int bucket_count;
+	unsigned int size; /* number of elements in the map */
+} *Hashmap, **HashM;
+
+SymbolM buckets este o lista de liste simplu inlantuite (buckets).
+
+Consider ca implementarea este una eficienta pentru ca lookup si insert in
+hashmap se fac aproape in O(1). 
+
+
+
+2. Lista de directoare
+Lista simplu inlantuita cu numele directoarelor in care se va face cautarea.
+Directorul de input va fi primul in lista.
+
+typedef struct input_dir {
+	char *dirname;
+	struct input_dir *next;
+} *InputDirs, **InputD;
+
+
+
+Pasii pe care ii parcurge codul:
+
+1. Verifica parametrii din linia de comanda, iese din program cu cod de eroare
+daca sunt gresiti
+Adauga simboluri/mapari de define in hashmap
+Seteaza modurile in care va citi in functie de existenta fisierelor de
+input/output din linia de comanda
+
+		~ redirectIOandProcessInput ~
+
+2. Redirecteaza inputul:
+
+	- daca avem fisier de input: il deschide, va citi din el
+	- daca nu: stdin
+
+	- daca avem fisier de output: il deschide, va citi din el
+	- daca nu: stdout
+
+3. processInput:
+	- separa bufferul si pentru fiecare directiva alege ce va face mai departe,
+astfel:
+
+
+~ pentru #define:
+	1) atribuie simbolul
+	2.0) daca nu mai e nimic pe linie: mapping = ""
+	2.1) daca mai exista ceva pe lnie mapping = acel ceva.
+	2.2) daca linia se termina in \, vom avea un define multilinie,
+astfel citim din buffer pana nu se mai intalneste \ si concatenam la mapping
+	2.3) fiecare token care va fi in mapping va fi cautat mai intai in
+	hashmap pentru a fi inlocuit din timp (nested #define)
+	3) se adauga symbol - mapping in hashmap
+
+~ pentru #undef:
+	- sterge elementul symbol - mapping din hashmap
+
+~ pentru #if, #elif, #else, #ifdef, #ifndef, #endif
+	1) avem un vector de structuri de date care va stoca informatii
+	despre starile prin care se trece in functie de # intalnite
+	
+	struct if_tracking {
+		int if_cond;
+		int is_if;
+		int is_else;
+	};
+
+
+	#if -> incrementeaza pozitia in structura (avem un nou if)
+		1) is_if = True, is_else = False
+		2) verifica daca este adevarata conditia:
+			* transforma string-ul in int 
+				-> daca e diferit de 0, inseamna ca este un
+				numar si poate fi evaluat -> if_cond = True
+				-> daca nu -> cauta in hashmap simbolul pentru
+				a-i afla valoarea -> daca se evalueaza la ceva
+				diferit de 0 -> if_cond = True, altfel False
+		3) la urmatoarea iteratie (daca nu e din familia if),
+		se va ocupa de buffer si va printa in output daca este 
+		adevarata conditia, altfel skip line
+
+	#elif -> nu modifica pozitia in vector
+		1), 2) si 3) la fel ca la #if
+
+	#else -> nu modifica pozitia in vector (este legat de un if deja existent)
+		1) is_if = False, is_else = True
+		2) la urmatoarea iteratie (daca nu e din familia if),
+		se va ocupa de buffer si va printa in output daca NU este 
+		adevarata conditia de la if-ul anterior, altfel skip line
+
+	#ifdef -> incrementeaza pozitia in structura (avem un nou if)
+		1) is_if = True, is_else = False
+		2) cauta in hashmap simbolul, daca exista: if_cond = True, altfel False
+		3) la urmatoarea iteratie (daca nu e din familia if),
+		se va ocupa de buffer si va printa in output daca este 
+		adevarata conditia, altfel skip line
+
+	#ifndef -> la fel ca #ifdef, dar invers la conditii
+
+	#endif -> decrementeaza pozitia in vectorul de if-uri
+
+
+~ pentru #include:
+	- reluam procedeul pe care l-am aplicat pana acum (adica pasii 2 si 3
+	pana nu mai avem ce procesa), deci functiile s-ar apela astfel:
+
+	din main -> redirectIOandProcessInput() -> processInput(input) -
+	aici posibil gaseste fisier header -> redirectIOandProcessInput() ->
+	daca fisierul este invalid - stop, altfel -> processInput(header) -
+	daca mai gaseste un header tot asa, pana se intoarce in processInput(input),
+	apoi in redirect..., apoi in main
+
+
+~ cand nu avem nicio directiva:
+	parcurgem linia de buffer si inlocuim eventualele simboluri care au mapari
+	(am implementat un strtok special care se ocupa de asta pentru a returna
+	pozitiile de start si stop si alte calcule necesare pentru replacement)
+
+
+
+
+
+
+
+
+*** Consideri ca tema a fost utila? ***
+
+Da, foarte utila. Sincer, m-am simtit ca la SD in anul 1 cu pointeri, liste
+simplu inlantuite si alocare dinamica...dar simt ca am acumulat experienta.
+Atunci as fi scris toata tema intr-un singur fisier, cel mai probabil,
+care ar fi avut 2000 de linii de cod in Sublime Text. As fi dat copy paste la
+bucati de cod in loc sa fac functii pentru orice trebuie facut de minim 2 ori.
+M-as fi luptat zile si nopti intregi cu pointerii si segmentation faulturile
+lor. Cu printf-uri pe post de debug (// aici ajungi?, // dar aici? linia x).
+Acum CLion cu variable watching in timp real si in dreptul codului la fiecare
+pas e painea lui miezău...
+
+Nu ar fi existat vreun fisier .h, vreun macro...daca nu erai cel care a scris
+codul...bafta la citit la README.
+
+Cateva lucruri au ramas neschimbate totusi: sigur ar fi trecut si atunci toate
+testele si ar fi fost uploadata la 4 zile dupa deadline ca, na...ziua cu
+deadline-ul soft e cea in care te apuci. :D
+
+P.S. Daca nu era README-ul, o uploadam cu 10 minute inainte sa se scurga ziua 3
+de depunctari
+
+
+On a serious note: 
+	E cea mai populara structura de date pentru interviuri.
+	Bate arborii.
+	
+Ce complexitate au inserarea si cautarea in hashmap?
+Cum ai implementa un hashmap? (Ma bucur de intrebare, tocmai ce am implementat
+unul :) )
+
+Unele companii au insistat puternic pe hashmaps: 3/3 probleme la proba de pe
+Hackerrank + intrebari la interviul urmator care aveau ca raspuns hashmaps
+
+
+
+	
+
+*** Dificultati intampinate ***
+
+Una din care nu am putut sa ies vreo 3h: ENOMEM vs -ENOMEM
+Nici acum nu inteleg de ce conteaza cum returnez 12, dar conteaza...
+
+Trebuie sa returnezi -12 din functiile apelate si 12 din main.
+Daca returnez 12 din functiile apelate si 12 din main, pica testul 38.
+Desi programul se termina cu 12-le din main mereu...
+
+Am cautat prin toate fisierele sa vad daca ratez o verificare de re/m/c/alloc
+de cateva ori si nimic, pica testul 38 pe Linux, trecea pe Windows (pe dos
+fata de forum).
+
+Checkerul de coding style numai pe vmchecker imi dadea warning ca trebuie sa
+returneze functiile minus, asa ca am incercat toate variantele.
+
+A 4-a a fost cu noroc si am ramas cu ENOMEM -12 declarat si cu iesire 
+cu -ENOMEM din functii, respectiv main.
+
+
+
+		
